@@ -6,6 +6,7 @@ import * as dotenv from 'dotenv';
 async function bootstrap() {
   dotenv.config(); // Load environment variables from .env file
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
   const websocketsGateway = app.get(WebsocketsGateway);
   websocketsGateway.afterInit(app.getHttpServer());
   await app.listen(process.env.PORT || 3001);

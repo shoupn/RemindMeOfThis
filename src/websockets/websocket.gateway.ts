@@ -1,4 +1,4 @@
-import { OnModuleInit } from '@nestjs/common';
+import { OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
 import {
   WebSocketGateway,
   OnGatewayInit,
@@ -18,12 +18,15 @@ export class WebsocketsGateway
     OnModuleInit,
     OnGatewayInit,
     OnGatewayConnection,
-    OnGatewayDisconnect
+    OnGatewayDisconnect,
+    OnApplicationShutdown
 {
   afterInit(server: any) {
-    console.log('server', server);
+    console.log(server);
   }
-
+  onApplicationShutdown(signal?: string | undefined) {
+    console.log(signal);
+  }
   private externalSockets: WebSocket[] = [];
 
   onModuleInit() {
