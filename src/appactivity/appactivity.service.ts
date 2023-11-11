@@ -30,7 +30,7 @@ export class AppActivityService {
     });
   }
 
-  async updateAppActivity(): Promise<AppActivity | null> {
+  async updateAppActivityStopTime(): Promise<AppActivity | null> {
     const currentAppActivity = await this.getCurrentAppActivity();
     return this.prisma.appActivity.update({
       where: { id: currentAppActivity?.id, processId: process.pid.toString() },
