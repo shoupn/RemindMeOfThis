@@ -1,4 +1,8 @@
-import { OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  OnApplicationShutdown,
+  OnModuleInit,
+} from '@nestjs/common';
 import {
   WebSocketGateway,
   OnGatewayInit,
@@ -8,10 +12,11 @@ import {
 import { Socket } from 'socket.io';
 import * as WebSocket from 'ws';
 import { v4 as uuidv4 } from 'uuid';
+import { AppActivityService } from 'src/appactivity/appactivity.service';
 
 const validWebSocketUriRegex =
   /^wss?:\/\/(www\.)?[\w-]+(\.[a-z]{2,}){1,2}(:\d{1,5})?\/?$/;
-
+@Injectable()
 @WebSocketGateway()
 export class WebsocketsGateway
   implements
@@ -21,15 +26,18 @@ export class WebsocketsGateway
     OnGatewayDisconnect,
     OnApplicationShutdown
 {
+  constructor(private appActivityService: AppActivityService) {}
   afterInit(server: any) {
     console.log(server);
   }
-  onApplicationShutdown(signal?: string | undefined) {
+  async onApplicationShutdown(signal?: string | undefined) {
+    await this.appActivityService.updateAppActivity();
     console.log(signal);
   }
   private externalSockets: WebSocket[] = [];
 
   onModuleInit() {
+    this.appActivityService.createNewAppActivity();
     console.log('WebSocket Gateway initialized');
     this.initiateExternalConnections();
   }
@@ -114,9 +122,21 @@ export class WebsocketsGateway
   }
 
   //need a function to get the last time the user was online
-  getLastOnline() {
-    //returns a unix timestamp number like 1630000000
-    return 1699542039;
+  async getLastOnline() {
+    //returns a unix timestamp number like 163000000
+    //convert time to unix timestamp
+    const lastTimeStampRan = await this.appActivityService.lastTimeAppRan();
+    if (lastTimeStampRan) {
+      //need to remove the milliseconds from the timestamp
+      const lastTimeStampRanUnix = new Date(lastTimeStampRan)
+        .getTime()
+        .toString()
+        .slice(0, -3);
+      console.log('lastTimeStampRanUnix', lastTimeStampRanUnix);
+      return lastTimeStampRanUnix;
+    } else {
+      return new Date().getTime().toString().slice(0, -3);
+    }
   }
 
   getNewGuid() {
