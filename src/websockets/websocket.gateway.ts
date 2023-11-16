@@ -1,36 +1,52 @@
-import { OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  LoggerService,
+  OnApplicationShutdown,
+  OnModuleInit,
+} from '@nestjs/common';
 import {
   WebSocketGateway,
-  OnGatewayInit,
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 import * as WebSocket from 'ws';
 import { v4 as uuidv4 } from 'uuid';
+import { AppActivityService } from 'src/appactivity/appactivity.service';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 const validWebSocketUriRegex =
   /^wss?:\/\/(www\.)?[\w-]+(\.[a-z]{2,}){1,2}(:\d{1,5})?\/?$/;
 
+@Injectable()
 @WebSocketGateway()
 export class WebsocketsGateway
   implements
     OnModuleInit,
-    OnGatewayInit,
     OnGatewayConnection,
     OnGatewayDisconnect,
     OnApplicationShutdown
 {
-  afterInit(server: any) {
-    console.log(server);
-  }
-  onApplicationShutdown(signal?: string | undefined) {
-    console.log(signal);
+  constructor(
+    private appActivityService: AppActivityService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private readonly logger: LoggerService,
+  ) {}
+
+  async onApplicationShutdown(signal?: string | undefined) {
+    this.logger.log('onApplicationShutdown', { signal });
+    try {
+      await this.appActivityService.updateAppActivityStopTime();
+    } catch (error) {
+      this.logger.error('An exception occurred writing to mongodb', { error });
+    }
   }
   private externalSockets: WebSocket[] = [];
 
   onModuleInit() {
-    console.log('WebSocket Gateway initialized');
+    this.logger.log('onModuleInit', { processId: process.pid.toString() });
+    this.appActivityService.createNewAppActivity();
     this.initiateExternalConnections();
   }
 
@@ -44,16 +60,23 @@ export class WebsocketsGateway
         if (validWebSocketUriRegex.test(relay)) {
           this.externalSockets.push(new WebSocket(relay));
         } else {
-          console.error('Invalid WebSocket URI');
+          this.logger.error('Invalid nostr relay', { relay });
         }
       });
     }
+    this.logger.log('externalSockets', { sockets: this.externalSockets });
+    this.logger.log(
+      'initiating external connections and watching for public key to be tagged',
+      {
+        publicKey: process.env.PUBLIC_KEY,
+      },
+    );
 
-    console.log('externalSockets', this.externalSockets);
-    console.log('process.env.PUBLIC_KEY', process.env.PUBLIC_KEY);
     this.externalSockets.forEach((socket, index) => {
       socket.on('open', () => {
-        console.log(`Connection to external server ${index + 1} opened`);
+        this.logger.log(`Connection to external server ${index + 1} opened`, {
+          socketUrl: socket.url,
+        });
 
         const initialMessage = [
           'REQ',
@@ -73,13 +96,15 @@ export class WebsocketsGateway
       });
 
       socket.on('close', () => {
-        console.log(`Connection to external server ${index + 1} closed`);
+        this.logger.log(`Connection to external server ${index + 1} closed`, {
+          socketUrl: socket.url,
+        });
       });
 
       socket.on('error', (error) => {
-        console.error(
+        this.logger.error(
           `Error in connection to external server ${index + 1}:`,
-          error,
+          { socketUrl: socket.url, error },
         );
       });
     });
@@ -91,32 +116,43 @@ export class WebsocketsGateway
 
       if (message[0] === 'EVENT') {
         const eventData = message[2];
-        console.log(
+        this.logger.log(
           `Event received from external server ${index + 1}:`,
           eventData,
         );
       }
+      // if (message[0] === 'EOSE') {
+      //   //close the connection
+      //   this.logger.log('Closing connection to external server', { index });
+      //   this.externalSockets[index].close();
+      // }
     } catch (error) {
-      console.error(
+      this.logger.error(
         `Error parsing message from external server ${index + 1}:`,
         error,
       );
     }
   }
 
-  handleConnection(socket: Socket, ...args: any[]) {
-    console.log(args);
-    console.log(`Client connected: ${socket.id}`);
+  handleConnection(socket: Socket) {
+    this.logger.log(`Client connected: ${socket.id}`);
   }
 
   handleDisconnect(socket: Socket) {
-    console.log(`Client disconnected: ${socket.id}`);
+    this.logger.log(`Client disconnected: ${socket.id}`);
   }
 
-  //need a function to get the last time the user was online
-  getLastOnline() {
-    //returns a unix timestamp number like 1630000000
-    return 1699542039;
+  async getLastOnline() {
+    const lastTimeStampRan = await this.appActivityService.lastTimeAppRan();
+    let lastTimeStampRanUnix = new Date().getTime().toString().slice(0, -3);
+    if (lastTimeStampRan) {
+      lastTimeStampRanUnix = new Date(lastTimeStampRan)
+        .getTime()
+        .toString()
+        .slice(0, -3);
+    }
+    this.logger.log('lastTimeStampRanUnix', { lastTimeStampRanUnix });
+    return lastTimeStampRanUnix;
   }
 
   getNewGuid() {
