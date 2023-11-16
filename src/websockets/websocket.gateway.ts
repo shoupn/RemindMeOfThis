@@ -121,6 +121,11 @@ export class WebsocketsGateway
           eventData,
         );
       }
+      // if (message[0] === 'EOSE') {
+      //   //close the connection
+      //   this.logger.log('Closing connection to external server', { index });
+      //   this.externalSockets[index].close();
+      // }
     } catch (error) {
       this.logger.error(
         `Error parsing message from external server ${index + 1}:`,
