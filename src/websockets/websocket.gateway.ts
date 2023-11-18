@@ -5,33 +5,25 @@ import {
   OnApplicationShutdown,
   OnModuleInit,
 } from '@nestjs/common';
-import {
-  WebSocketGateway,
-  OnGatewayConnection,
-  OnGatewayDisconnect,
-} from '@nestjs/websockets';
+import { WebSocketGateway } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 import * as WebSocket from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import { AppActivityService } from 'src/appactivity/appactivity.service';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-
+import { SendNoteService } from 'src/send-note/send-note.service';
+import 'websocket-polyfill';
 const validWebSocketUriRegex =
   /^wss?:\/\/(www\.)?[\w-]+(\.[a-z]{2,}){1,2}(:\d{1,5})?\/?$/;
 
 @Injectable()
 @WebSocketGateway()
-export class WebsocketsGateway
-  implements
-    OnModuleInit,
-    OnGatewayConnection,
-    OnGatewayDisconnect,
-    OnApplicationShutdown
-{
+export class WebsocketsGateway implements OnModuleInit, OnApplicationShutdown {
   constructor(
     private appActivityService: AppActivityService,
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private readonly logger: LoggerService,
+    private readonly sendNoteService: SendNoteService,
   ) {}
 
   async onApplicationShutdown(signal?: string | undefined) {
@@ -50,6 +42,7 @@ export class WebsocketsGateway
     this.initiateExternalConnections();
   }
 
+  //todo use recursion if prior socket was closed/fails
   initiateExternalConnections() {
     if (process.env.RELAYWS) {
       //I want to split here and then loop through the array and create a new websocket for each one
@@ -64,6 +57,17 @@ export class WebsocketsGateway
         }
       });
     }
+
+    const initialMessage = [
+      'REQ',
+      uuidv4(),
+      {
+        since: this.getLastOnline(),
+        kinds: [1, 6],
+        '#p': [process.env.PUBLIC_KEY],
+      },
+    ];
+
     this.logger.log('externalSockets', { sockets: this.externalSockets });
     this.logger.log(
       'initiating external connections and watching for public key to be tagged',
@@ -78,16 +82,6 @@ export class WebsocketsGateway
           socketUrl: socket.url,
         });
 
-        const initialMessage = [
-          'REQ',
-          this.getNewGuid(),
-          {
-            since: this.getLastOnline(),
-            kinds: [1, 6],
-            '#p': [process.env.PUBLIC_KEY],
-          },
-        ];
-
         socket.send(JSON.stringify(initialMessage));
       });
 
@@ -96,6 +90,7 @@ export class WebsocketsGateway
       });
 
       socket.on('close', () => {
+        socket.send(JSON.stringify(initialMessage));
         this.logger.log(`Connection to external server ${index + 1} closed`, {
           socketUrl: socket.url,
         });
@@ -110,7 +105,7 @@ export class WebsocketsGateway
     });
   }
 
-  handleEvents(index: number, data: string) {
+  async handleEvents(index: number, data: string) {
     try {
       const message = JSON.parse(data);
 
@@ -120,12 +115,8 @@ export class WebsocketsGateway
           `Event received from external server ${index + 1}:`,
           eventData,
         );
+        await this.sendNoteService.replyToParent('reply', message[2]);
       }
-      // if (message[0] === 'EOSE') {
-      //   //close the connection
-      //   this.logger.log('Closing connection to external server', { index });
-      //   this.externalSockets[index].close();
-      // }
     } catch (error) {
       this.logger.error(
         `Error parsing message from external server ${index + 1}:`,
@@ -140,6 +131,7 @@ export class WebsocketsGateway
 
   handleDisconnect(socket: Socket) {
     this.logger.log(`Client disconnected: ${socket.id}`);
+    //reopen connection
   }
 
   async getLastOnline() {
