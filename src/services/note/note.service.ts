@@ -11,13 +11,18 @@ import {
 } from 'nostr-tools';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
+import { EventsDataService } from 'src/services/eventsdata/eventsdata.service';
+import {
+  calculateFutureDate,
+  parseMention,
+} from 'src/helpers/mentionparser.helper';
 
 @Injectable()
-export class SendNoteService {
+export class NoteService {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
+    private readonly eventDataService: EventsDataService,
   ) {
-    this.logger = logger.child({ context: 'SendNoteService' });
     if (process.env.RELAYWS) {
       this.relays = process.env.RELAYWS.split(',').map((relay) => relay.trim());
     }
@@ -26,11 +31,25 @@ export class SendNoteService {
   private relays: string[] = [];
 
   async replyToParent(replyMessage: string, parentEvent: Event) {
-    // Retrieve the private key from the environment variable
     const sk = process.env.PRIVATE_KEY;
-    const pk = process.env.PUBLIC_KEY;
+    const pk = process.env.PUBLIC_KEY_HEX;
     if (!sk || !pk) {
       this.logger.error('Private or Pubkey not found in environment variable.');
+      return;
+    }
+
+    const mentionTime = parseMention(parentEvent.content);
+    if (!mentionTime) {
+      this.logger.warn('No mention time found in parent event', {
+        parentEvent,
+      });
+      return;
+    }
+    const futureDate = calculateFutureDate(mentionTime);
+    if (!futureDate) {
+      this.logger.warn('No future date found in parent event', {
+        parentEvent,
+      });
       return;
     }
 
@@ -40,7 +59,7 @@ export class SendNoteService {
       created_at: Math.floor(Date.now() / 1000),
       tags: [
         // Top-level "e" tag for the reply
-        ['e', parentEvent.id, 'reply'],
+        ['e', parentEvent.id, '', 'reply'], //TODO add paid relay here
         // Include "p" tags from the parent note
         ...parentEvent.tags,
       ],
@@ -56,7 +75,10 @@ export class SendNoteService {
     ]);
 
     sub.on('event', (event) => {
-      this.logger.log('event', { event });
+      this.logger.info('replied to parent event with event', {
+        parentEvent,
+        event,
+      });
     });
 
     const ok = validateEvent(replyEvent);
@@ -78,14 +100,28 @@ export class SendNoteService {
       });
       return;
     }
-    // Sign the reply event
+
     const signedReplyEvent = finishEvent(event, sk);
 
-    // Publish the signed reply event using the relay pool
-    const pubs = pool.publish(this.relays, signedReplyEvent);
+    this.logger.info('Signed reply event', { signedReplyEvent });
+
+    const etagr = parentEvent.tags.find((tag) => tag[0] === 'e');
+    if (etagr && etagr[2] && !this.relays.includes(etagr[2])) {
+      this.relays.push(etagr[2]);
+      this.logger.info('Publishing to relay', { etagr });
+    }
+
+    const pubs = pool.publish([...this.relays], signedReplyEvent);
 
     await Promise.all(pubs);
-    this.logger.log('Published reply event', { signedReplyEvent });
+    this.logger.info('Published reply event', { signedReplyEvent });
+
+    await this.eventDataService.createEventData(
+      parentEvent,
+      signedReplyEvent,
+      futureDate,
+    );
+
     await pool.close(this.relays);
   }
 }

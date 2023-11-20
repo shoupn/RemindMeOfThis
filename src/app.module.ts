@@ -1,13 +1,16 @@
 import { Module } from '@nestjs/common';
 import { AppService } from './app.service';
-import { WebsocketsModule } from './websockets/websocket.module';
-import { PrismaService } from './prisma/prisma.service';
+import { RemindMeOfThisModule } from './remindmeofthis/remindmeofthis.module';
+import { PrismaService } from './services/prisma/prisma.service';
 import { WinstonModule } from 'nest-winston';
+import { ScheduleModule } from '@nestjs/schedule';
+import { EventsDataService } from './services/eventsdata/eventsdata.service';
 import * as winston from 'winston';
 
 @Module({
   imports: [
-    WebsocketsModule,
+    RemindMeOfThisModule,
+    ScheduleModule.forRoot(),
     WinstonModule.forRoot({
       transports: [
         new winston.transports.Console({
@@ -28,6 +31,6 @@ import * as winston from 'winston';
       ],
     }),
   ],
-  providers: [AppService, PrismaService],
+  providers: [AppService, PrismaService, EventsDataService],
 })
 export class AppModule {}
