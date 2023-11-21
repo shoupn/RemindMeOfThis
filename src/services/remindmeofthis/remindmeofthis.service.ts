@@ -12,9 +12,8 @@ import { NoteService } from 'src/services/note/note.service';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import { SimplePool, Filter } from 'nostr-tools';
-import { subDays } from 'date-fns';
+import { subMinutes } from 'date-fns';
 import { EventsDataService } from 'src/services/eventsdata/eventsdata.service';
-
 const validWebSocketUriRegex =
   /^wss?:\/\/(www\.)?[\w-]+(\.[a-z]{2,}){1,2}(:\d{1,5})?\/?$/;
 
@@ -37,16 +36,20 @@ export class RemindMeOfThisService
       this.logger.error('An exception occurred writing to mongodb', { error });
     }
   }
-  private externalSockets: WebSocket[] = [];
   private relays: string[] = [];
   onModuleInit() {
     this.logger.log('onModuleInit', { processId: process.pid.toString() });
     this.appActivityService.createNewAppActivity();
-    this.initiateExternalConnections();
   }
 
   //todo use recursion if prior socket was closed/fails
-  async initiateExternalConnections() {
+  async subForReplyEvents() {
+    const current = this.appActivityService.updateAppActivityLastCheck();
+
+    if (!current) {
+      this.logger.error('Could not get current app activity');
+      return;
+    }
     if (process.env.RELAYWS) {
       //test each relay to make sure it is a valid websocket uri
       const relays = process.env.RELAYWS.split(',').map((relay) =>
@@ -88,8 +91,10 @@ export class RemindMeOfThisService
         if (existingEvent) {
           this.logger.info('event already exists', { event });
           return;
+        } else {
+          this.logger.info('event does not exist and replying', { event });
+          await this.noteService.replyWithWillRemindEvent(event);
         }
-        await this.noteService.replyToParent('reply', event);
       } catch (error) {
         this.logger.error('An exception occurred writing to mongodb', {
           error,
@@ -99,10 +104,10 @@ export class RemindMeOfThisService
 
     sub.on('eose', () => {
       this.logger.info('eose received', { filter });
+      sub.unsub();
     });
 
-    this.logger.log('externalSockets', { sockets: this.externalSockets });
-    this.logger.log(
+    this.logger.info(
       'initiating external connections and watching for public key to be tagged',
       {
         publicKey: process.env.PUBLIC_KEY,
@@ -111,13 +116,23 @@ export class RemindMeOfThisService
   }
 
   async getLastOnline() {
-    const lastTimeStampRan = await this.appActivityService.lastTimeAppRan();
-    let lastTimeStampRanUnix = Math.floor(new Date().getTime() / 1000);
+    const lastTimeStampRan = await this.appActivityService.lastTimeAppChecked();
+    let lastTimeStampRanUnix = 0;
     if (lastTimeStampRan) {
-      const yesterday = subDays(new Date(), 7);
-      lastTimeStampRanUnix = Math.floor(yesterday.getTime() / 1000);
+      const oneMinuteAgo = subMinutes(new Date(lastTimeStampRan), 1);
+      lastTimeStampRanUnix = Math.floor(oneMinuteAgo.getTime() / 1000);
+    } else {
+      const lastTimeAppStopped =
+        await this.appActivityService.lastTimeAppStopped();
+      if (!lastTimeAppStopped) {
+        const fiveMinutesAgo = subMinutes(new Date(), 5);
+        lastTimeStampRanUnix = Math.floor(fiveMinutesAgo.getTime() / 1000);
+      } else {
+        const fiveMinutesAgo = subMinutes(new Date(lastTimeAppStopped), 5);
+        lastTimeStampRanUnix = Math.floor(fiveMinutesAgo.getTime() / 1000);
+      }
     }
-    this.logger.log('lastTimeStampRanUnix', { lastTimeStampRanUnix });
+    this.logger.info('lastTimeStampRanUnix', { lastTimeStampRanUnix });
     return lastTimeStampRanUnix;
   }
 }

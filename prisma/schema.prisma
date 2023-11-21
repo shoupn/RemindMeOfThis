@@ -14,17 +14,18 @@ model AppActivity {
   id         String @id @default(auto()) @map("_id") @db.ObjectId  
   processId  String @map("process_id")
   startTime  DateTime  @default(now()) @map("start_time")
+  lastCheck  DateTime? @map("last_check")
   stopTime   DateTime? @default(now()) @map("stop_time")
 }
 
 model EventReminders {
   id                    String @id @default(auto()) @map("_id") @db.ObjectId  
   eventId               String @map("event_id")
-  eventInitialResponse  DateTime?  @default(now()) @map("event_initial_response")
+  createdAt             DateTime @default(now()) @map("created_at")
   eventJson             Json? @map("event_json")
   replyJson             Json? @map("reply_json")
-  eventReminderTime     DateTime? @default(now()) @map("event_reminder_time")
+  eventReminderAt       DateTime? @map("event_reminder_at")
   reminded              Boolean @default(false) @map("reminded")
-  remindedTime          DateTime? @default(now()) @map("reminded_time")
+  remindedAt            DateTime? @map("reminded_at")
   remindedJson          Json? @map("reminded_json")
 }

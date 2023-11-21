@@ -29,10 +29,9 @@ export class NoteService {
   }
 
   private relays: string[] = [];
-
-  async replyToParent(replyMessage: string, parentEvent: Event) {
+  async replyWithWillRemindEvent(parentEvent: Event) {
     const sk = process.env.PRIVATE_KEY;
-    const pk = process.env.PUBLIC_KEY_HEX;
+    const pk = process.env.PUBLIC_KEY;
     if (!sk || !pk) {
       this.logger.error('Private or Pubkey not found in environment variable.');
       return;
@@ -53,7 +52,7 @@ export class NoteService {
       return;
     }
 
-    // Create the reply event
+    const replyMessage = `I will remind you of this in ${mentionTime.time} ${mentionTime.unit}`;
     const replyEvent: UnsignedEvent = {
       kind: 1,
       created_at: Math.floor(Date.now() / 1000),
@@ -122,6 +121,6 @@ export class NoteService {
       futureDate,
     );
 
-    await pool.close(this.relays);
+    pool.close(this.relays);
   }
 }

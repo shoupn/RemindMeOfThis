@@ -11,6 +11,13 @@ describe('RemindMeOfThis Bot', () => {
   });
 
   test('Parse Mention - Days', () => {
+    expect(parseMention('@RemindMeOfThis in one week')).toEqual({
+      time: 1,
+      unit: 'week',
+    });
+  });
+
+  test('Parse Mention - Days', () => {
     expect(parseMention('@RemindMeOfThis in 5 day')).toEqual({
       time: 5,
       unit: 'days',

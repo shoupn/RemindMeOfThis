@@ -4,7 +4,6 @@ import { RemindMeOfThisModule } from './remindmeofthis/remindmeofthis.module';
 import { PrismaService } from './services/prisma/prisma.service';
 import { WinstonModule } from 'nest-winston';
 import { ScheduleModule } from '@nestjs/schedule';
-import { EventsDataService } from './services/eventsdata/eventsdata.service';
 import * as winston from 'winston';
 
 @Module({
@@ -31,6 +30,6 @@ import * as winston from 'winston';
       ],
     }),
   ],
-  providers: [AppService, PrismaService, EventsDataService],
+  providers: [AppService, PrismaService],
 })
 export class AppModule {}

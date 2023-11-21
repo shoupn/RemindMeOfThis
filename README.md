@@ -12,7 +12,7 @@ run `npx prisma db push` followed by `npx prisma generate` to update the prisma 
 ## .ENV file
 
 ```
-PUBLIC_KEY_HEX='npub1rmndxyxnwd0n6dje3h75ywlngurdwe9nqy8vrqras32z4p7fpe9qm5s5ad'
+PUBLIC_KEY_NPUB='npub1rmndxyxnwd0n6dje3h75ywlngurdwe9nqy8vrqras32z4p7fpe9qm5s5ad'
 PUBLIC_KEY='1ee6d310d3735f3d36598dfd423bf34706d764b3010ec1807d84542a87c90e4a'
 PRIVATE_KEY='your private key here'
 PORT = 4000
