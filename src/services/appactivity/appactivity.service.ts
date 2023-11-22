@@ -1,14 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { AppActivity } from '@prisma/client';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from 'src/services/prisma/prisma.service';
 
 @Injectable()
 export class AppActivityService {
   constructor(private prisma: PrismaService) {}
 
-  async lastTimeAppRan(): Promise<string | undefined> {
+  async lastTimeAppChecked(): Promise<string | undefined> {
     const result = await this.prisma.appActivity.findFirst({
-      orderBy: { startTime: 'desc' },
+      orderBy: { lastCheck: 'desc' },
+    });
+    return result?.lastCheck?.toISOString();
+  }
+
+  async lastTimeAppStopped(): Promise<string | undefined> {
+    const result = await this.prisma.appActivity.findFirst({
+      orderBy: { stopTime: 'desc' },
     });
     return result?.stopTime?.toISOString();
   }
@@ -26,7 +33,19 @@ export class AppActivityService {
   getCurrentAppActivity(): Promise<AppActivity | null> {
     return this.prisma.appActivity.findFirst({
       where: { processId: process.pid.toString() },
-      orderBy: { startTime: 'desc' },
+    });
+  }
+
+  async updateAppActivityLastCheck(): Promise<AppActivity | null> {
+    const currentAppActivity = await this.getCurrentAppActivity();
+    if (!currentAppActivity) {
+      return null;
+    }
+    return this.prisma.appActivity.update({
+      where: { id: currentAppActivity?.id, processId: process.pid.toString() },
+      data: {
+        lastCheck: new Date(),
+      },
     });
   }
 
