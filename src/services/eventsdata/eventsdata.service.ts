@@ -7,6 +7,17 @@ import { EventReminders } from '@prisma/client';
 export class EventsDataService {
   constructor(private prisma: PrismaService) {}
 
+  async getEventsToRemind(): Promise<EventReminders[]> {
+    return this.prisma.eventReminders.findMany({
+      where: {
+        reminded: false,
+        eventReminderAt: {
+          lte: new Date(),
+        },
+      },
+    });
+  }
+
   async getEventData(eventId: string): Promise<EventReminders | null> {
     return this.prisma.eventReminders.findFirst({
       where: { eventId },
