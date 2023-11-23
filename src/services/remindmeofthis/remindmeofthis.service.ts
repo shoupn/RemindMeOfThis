@@ -113,6 +113,7 @@ export class RemindMeOfThisService
         publicKey: process.env.PUBLIC_KEY,
       },
     );
+    return;
   }
 
   async getLastOnline() {
