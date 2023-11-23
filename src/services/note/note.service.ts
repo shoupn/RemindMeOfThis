@@ -17,7 +17,6 @@ import {
   calculateFutureDate,
   parseMention,
 } from 'src/helpers/mentionparser.helper';
-import { tr } from 'date-fns/locale';
 
 @Injectable()
 export class NoteService {
@@ -54,9 +53,11 @@ export class NoteService {
     }
 
     console.log(parentEvent);
-    const replyMessage = `nostr:${nip19.npubEncode(
+    const replyMessage = `Yo nostr:${nip19.npubEncode(
       parentEvent.pubkey,
-    )} I will remind you of this in ${mentionTime.time} ${mentionTime.unit}`;
+    )}! I will remind you of this note in ${mentionTime.time} ${
+      mentionTime.unit
+    }!`;
     const replyEvent: UnsignedEvent = {
       kind: 1,
       created_at: Math.floor(Date.now() / 1000),
@@ -250,5 +251,6 @@ export class NoteService {
     );
 
     pool.close(this.relays);
+    return;
   }
 }

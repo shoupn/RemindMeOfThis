@@ -11,9 +11,16 @@ describe('RemindMeOfThis Bot', () => {
   });
 
   test('Parse Mention - Days', () => {
-    expect(parseMention('@RemindMeOfThis in one week')).toEqual({
+    expect(parseMention('@RemindMeOfThis in one weeks please')).toEqual({
       time: 1,
       unit: 'week',
+    });
+  });
+
+  test('Parse Mention - Days', () => {
+    expect(parseMention('@RemindMeOfThis in 11 weeks please')).toEqual({
+      time: 11,
+      unit: 'weeks',
     });
   });
 
@@ -62,6 +69,13 @@ describe('RemindMeOfThis Bot', () => {
   test('Calculate Future Date - Months', () => {
     const expectedDate = addMonths(new Date(), 4);
     expect(calculateFutureDate({ time: 4, unit: 'months' })).toEqual(
+      expectedDate,
+    );
+  });
+
+  test('Calculate Future Date - Months', () => {
+    const expectedDate = addMonths(new Date(), 4);
+    expect(calculateFutureDate({ time: 4, unit: 'month' })).toEqual(
       expectedDate,
     );
   });
