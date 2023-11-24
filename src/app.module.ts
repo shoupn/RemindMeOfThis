@@ -5,9 +5,11 @@ import { PrismaService } from './services/prisma/prisma.service';
 import { WinstonModule } from 'nest-winston';
 import { ScheduleModule } from '@nestjs/schedule';
 import * as winston from 'winston';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({}),
     RemindMeOfThisModule,
     ScheduleModule.forRoot(),
     WinstonModule.forRoot({

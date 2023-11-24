@@ -14,7 +14,7 @@ export class TasksService {
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
 
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_10_SECONDS)
   async checkForNewEvents() {
     this.logger.info('Called checkForNewEvents');
     await this.remindMeOfThisService.subForReplyEvents();
