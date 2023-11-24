@@ -71,7 +71,7 @@ export class RemindMeOfThisService
     const filter: Filter<number> = {
       since: await this.getLastOnline(),
       //since: 0,
-      kinds: [1, 6],
+      kinds: [1],
       '#p': [process.env.PUBLIC_KEY],
     };
 
@@ -104,6 +104,7 @@ export class RemindMeOfThisService
 
     sub.on('eose', () => {
       this.logger.info('eose received', { filter });
+      sub.off('eose', () => {});
       sub.unsub();
     });
 
