@@ -52,7 +52,6 @@ export class NoteService {
       return;
     }
 
-    console.log(parentEvent);
     const replyMessage = `Yo nostr:${nip19.npubEncode(
       parentEvent.pubkey,
     )}! I will remind you of this note in ${mentionTime.time} ${
@@ -250,7 +249,6 @@ export class NoteService {
       signedReminderEvent,
     );
 
-    pool.close(this.relays);
     return;
   }
 }
