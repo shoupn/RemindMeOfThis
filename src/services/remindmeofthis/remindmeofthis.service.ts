@@ -8,7 +8,7 @@ import {
 
 import { AppActivityService } from 'src/services/appactivity/appactivity.service';
 import { NoteService } from 'src/services/note/note.service';
-
+import { SchedulerRegistry } from '@nestjs/schedule';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import { SimplePool, Filter } from 'nostr-tools';
@@ -22,6 +22,7 @@ export class RemindMeOfThisService
   implements OnModuleInit, OnApplicationShutdown
 {
   constructor(
+    private scheduleRegistry: SchedulerRegistry,
     private appActivityService: AppActivityService,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
     private readonly noteService: NoteService,
@@ -104,8 +105,10 @@ export class RemindMeOfThisService
 
     sub.on('eose', () => {
       this.logger.info('eose received', { filter });
-      sub.off('eose', () => {});
       sub.unsub();
+      const job = this.scheduleRegistry.getCronJob('checkForNewEvents');
+      job.stop();
+      job.start();
     });
 
     this.logger.info(
